@@ -294,6 +294,7 @@ Gold dimensions and the fact table also use Delta `MERGE`. This makes the analyt
 The project creates two Spark SQL views.
 
 ### Driver Standings
+![Alt text](images/driver.png)
 
 `v_driver_standing` calculates each driver's seasonal performance using:
 
@@ -304,6 +305,7 @@ The project creates two Spark SQL views.
 - Seasonal standing calculated with `RANK()`
 
 ### Constructor Standings
+![Alt text](images/constructor.png)
 
 `v_constructor_standing` calculates each constructor's seasonal performance using the same measures and ranking logic.
 
