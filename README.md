@@ -289,6 +289,91 @@ Gold dimensions and the fact table also use Delta `MERGE`. This makes the analyt
 
 ---
 
+## Lakeflow Jobs Orchestration
+
+Lakeflow Jobs is used to turn the individual notebooks into a coordinated production workflow. It manages task order and dependencies, passes the current batch between notebooks, and provides a central place to run, monitor, retry, and schedule the pipeline.
+
+The incremental workflow follows this logical task graph:
+
+```mermaid
+flowchart TD
+    A[Identify Next Batch] --> B{New batch available?}
+    B -- No --> Z[End Run]
+    B -- Yes --> C[Create New Batch]
+
+    C --> D1[Ingest Circuits]
+    C --> D2[Ingest Races]
+    C --> D3[Ingest Constructors]
+    C --> D4[Ingest Drivers]
+    C --> D5[Ingest Results]
+    C --> D6[Ingest Sprints]
+
+    D1 --> E1[Transform Circuits]
+    D2 --> E2[Transform Races]
+    D3 --> E3[Transform Constructors]
+    D4 --> E4[Transform Drivers]
+    D5 --> E5[Transform Results]
+    D6 --> E6[Transform Sprints]
+
+    C --> R[Build Nationality Region Reference]
+
+    E1 --> F1[Build Race Dimension]
+    E2 --> F1
+    E3 --> F2[Build Constructor Dimension]
+    R --> F2
+    E4 --> F3[Build Driver Dimension]
+    R --> F3
+    E5 --> F4[Build Session Results Fact]
+    E6 --> F4
+
+    F1 --> G[Build Analytical Views]
+    F2 --> G
+    F3 --> G
+    F4 --> G
+    G --> H[Complete Batch]
+```
+
+> The repository contains the notebooks used by these tasks, but not an exported Lakeflow Job definition. The exact task graph, dependencies, parameters, compute, and retry settings must be configured in the Databricks workspace or defined later with Databricks Asset Bundles.
+
+### Passing the Batch ID Between Tasks
+
+The first orchestration notebook examines the landing folders and the `batch_control` table to identify the earliest unprocessed batch. It then publishes two Lakeflow task values:
+
+```python
+if next_batch is None:
+    dbutils.jobs.taskValues.set(key="p_batch_id", value="")
+    dbutils.jobs.taskValues.set(key="has_batch", value="false")
+else:
+    dbutils.jobs.taskValues.set(key="p_batch_id", value=next_batch)
+    dbutils.jobs.taskValues.set(key="has_batch", value="true")
+```
+
+The value of `p_batch_id` is mapped to a notebook parameter for downstream tasks. Each notebook reads it through a Databricks widget:
+
+```python
+dbutils.widgets.text("p_batch_id", "")
+batch_id = dbutils.widgets.get("p_batch_id")
+```
+
+This allows every Bronze, Silver, and Gold task in the same job run to process the same batch without hard-coding its identifier.
+
+### Batch-State Management
+
+Lakeflow coordinates the control notebooks around the data-processing tasks:
+
+1. **Identify Next Batch** compares landing folders with batches already marked `in_progress` or `completed`.
+2. **Create New Batch** appends an `in_progress` record to the Delta control table.
+3. **Processing tasks** ingest and transform the selected batch through Bronze, Silver, and Gold.
+4. **Complete Batch** changes the corresponding control record to `completed` only after the required upstream tasks succeed.
+
+Because the completion task depends on the successful pipeline path, a failed run does not incorrectly mark the batch as completed. Lakeflow task retries and reruns can be used to recover failed processing, while the job run history provides centralized monitoring of task status and duration.
+
+### Parallel Execution
+
+Independent dataset tasks can run in parallel after the batch is created. For example, the six Bronze ingestion notebooks do not depend on one another. Their corresponding Silver transformations can also run independently once each Bronze table is ready. Gold dimensions and the session-results fact can run according to their own Silver-layer dependencies. The driver and constructor dimensions also depend on the nationality-region reference table, while the analytical views run after the required Gold tables are available.
+
+---
+
 ## Analytical Views
 
 The project creates two Spark SQL views.
