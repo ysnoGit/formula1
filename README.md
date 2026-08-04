@@ -355,21 +355,6 @@ batch_id = dbutils.widgets.get("p_batch_id")
 
 This allows every Bronze, Silver, and Gold task in the same job run to process the same batch without hard-coding its identifier.
 
-### Batch-State Management
-
-Lakeflow coordinates the control notebooks around the data-processing tasks:
-
-1. **Identify Next Batch** compares landing folders with batches already marked `in_progress` or `completed`.
-2. **Create New Batch** appends an `in_progress` record to the Delta control table.
-3. **Processing tasks** ingest and transform the selected batch through Bronze, Silver, and Gold.
-4. **Complete Batch** changes the corresponding control record to `completed` only after the required upstream tasks succeed.
-
-Because the completion task depends on the successful pipeline path, a failed run does not incorrectly mark the batch as completed. Lakeflow task retries and reruns can be used to recover failed processing, while the job run history provides centralized monitoring of task status and duration.
-
-### Parallel Execution
-
-Independent dataset tasks can run in parallel after the batch is created. For example, the six Bronze ingestion notebooks do not depend on one another. Their corresponding Silver transformations can also run independently once each Bronze table is ready. Gold dimensions and the session-results fact can run according to their own Silver-layer dependencies. The driver and constructor dimensions also depend on the nationality-region reference table, while the analytical views run after the required Gold tables are available.
-
 ---
 
 ## Analytical Views
