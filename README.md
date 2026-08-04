@@ -9,8 +9,6 @@ Two implementations are included:
 - **Full-load pipeline** — builds the complete lakehouse by processing all available source data.
 - **Incremental-load pipeline** — processes one new batch at a time and uses Delta `MERGE` operations to update existing tables safely.
 
-> This project was completed as part of an Azure Databricks data engineering course. It is published as a learning and portfolio project; see [Acknowledgements](#acknowledgements).
-
 ---
 
 ## Project Objectives
@@ -58,8 +56,6 @@ The pipeline processes six Formula 1 datasets:
 | `drivers` | JSON | Driver names, dates of birth, and nationalities |
 | `results` | JSON | Formula 1 race results |
 | `sprints` | JSON | Formula 1 sprint results |
-
-The source data files are not included in the supplied project archives. They must be placed in the configured landing volume before the notebooks are run.
 
 ---
 
@@ -110,7 +106,6 @@ The Silver layer contains cleaned and standardized records that preserve the bus
 Typical transformations include:
 
 - Converting column names to snake case.
-- Renaming fields to more meaningful names.
 - Dropping columns that are not required for analytics.
 - Flattening nested JSON structures.
 - Standardizing text values and date fields.
@@ -214,7 +209,6 @@ Driver and constructor standings views
 
 Each Bronze table is initially written with an overwrite operation. The Silver and Gold layers are then rebuilt from the complete Bronze dataset.
 
-This version is useful for understanding the core transformation flow and validating the final data model.
 
 ---
 
@@ -346,133 +340,6 @@ These views support questions such as:
 
 ---
 
-## How to Run the Project
-
-### Prerequisites
-
-You need:
-
-- An Azure subscription
-- An Azure Databricks workspace with Unity Catalog enabled
-- An ADLS Gen2 storage account and container
-- An Access Connector for Azure Databricks
-- A Unity Catalog storage credential
-- Permission to create external locations, catalogs, schemas, volumes, and tables
-
-### 1. Configure Azure Storage Access
-
-Create or confirm the following resources:
-
-1. Azure Databricks Access Connector
-2. ADLS Gen2 storage account and container
-3. `Storage Blob Data Contributor` role assignment for the connector
-4. Unity Catalog storage credential
-5. Unity Catalog external location
-
-### 2. Update Project Configuration
-
-The supplied notebooks contain course-specific Azure resource names. Replace the following values with resources from your environment:
-
-- Storage account name
-- Container name
-- Storage credential name
-- External location name
-- Catalog name, when required
-
-The main configuration locations are:
-
-```text
-01-setup/01.Setup Project Environment.sql
-00-common/01.environment-config.py
-```
-
-### 3. Upload the Source Data
-
-For the full-load version, place the files directly in the landing volume.
-
-For the incremental version, place each delivery inside a unique batch folder, such as:
-
-```text
-/Volumes/formula1_incr/landing/files/2025-01/
-```
-
-### 4. Import the Notebooks
-
-Import the project directories into a Databricks workspace while preserving their relative folder structure. The notebooks use `%run` to load shared configuration and helper notebooks.
-
-### 5. Run the Full-Load Version
-
-Run the notebooks in this order:
-
-1. Project environment setup
-2. Bronze ingestion notebooks
-3. Silver transformation notebooks
-4. Nationality-region reference notebook
-5. Gold dimension notebooks
-6. Gold fact notebook
-7. Analytical SQL views
-
-### 6. Run the Incremental Version
-
-Create the control table once, then configure a Lakeflow Job with this logical order:
-
-```text
-Identify Next Batch
-        ↓
-Create New Batch
-        ↓
-Bronze Ingestion Tasks
-        ↓
-Silver Transformation Tasks
-        ↓
-Gold Dimension and Fact Tasks
-        ↓
-Analytical Views
-        ↓
-Complete Batch
-```
-
-The six Bronze tasks can run in parallel after the batch is created. Silver tasks can also be parallelized when their dependencies allow it.
-
-> The provided files contain the orchestration notebooks, but they do not include an exported Lakeflow Job or Databricks Asset Bundle definition. The task graph and parameter mappings must therefore be configured in the Databricks workspace.
-
----
-
-## Important Configuration Note
-
-The analytical SQL notebooks in the supplied incremental project currently reference:
-
-```sql
-formula1.gold
-```
-
-The incremental notebooks otherwise use the `formula1_incr` catalog. Update the SQL views to reference your configured incremental catalog before running them, for example:
-
-```sql
-formula1_incr.gold
-```
-
----
-
-## Data Quality and Reliability Features
-
-The implementation includes several practices that improve trust and rerun safety:
-
-- Explicit source schemas instead of schema inference
-- Fail-fast handling for malformed input
-- Source-file and ingestion-time metadata
-- Business-key null validation
-- Duplicate removal
-- Standardized names and data types
-- Delta ACID transactions
-- Table history and versioning
-- Partition-scoped Bronze reruns
-- Silver and Gold upserts with Delta `MERGE`
-- Protection against an older batch overwriting newer Silver data
-- Batch status tracking for operational recovery
-
----
-
 ## What I Learned
 
 Through this project, I learned how the main components of Azure Databricks work together in an end-to-end data engineering workflow.
@@ -483,13 +350,11 @@ In particular, I gained hands-on experience with:
 - Connecting Databricks and ADLS through Unity Catalog-managed credentials and external locations.
 - Choosing between volumes, schemas, managed locations, and Delta tables.
 - Building reusable PySpark ingestion and transformation patterns.
-- Understanding why explicit schemas and audit metadata matter in production pipelines.
 - Using Delta Lake transaction logs, ACID guarantees, version history, and `MERGE` operations.
 - Modelling facts and dimensions for efficient analytical queries.
 - Using Spark SQL joins, aggregations, conditional counts, CTEs, and window functions.
 - Passing parameters between Lakeflow Job tasks.
-- Designing a batch control mechanism that supports incremental processing and safe reruns.
-- Separating interactive development compute from production job compute.
+- Designing a batch control mechanism that supports incremental processing.
 
 ---
 
@@ -499,21 +364,6 @@ Possible next steps include:
 
 - Define the Lakeflow Job as code using Databricks Asset Bundles.
 - Add automated data-quality tests and pipeline assertions.
-- Add a quarantine path for malformed records.
-- Introduce schema-evolution handling.
-- Add unit tests for transformation helper functions.
 - Add data-volume and freshness monitoring.
 - Add a CI/CD workflow for notebook deployment.
-- Export and version dashboard definitions.
-- Add sample output screenshots and query results.
-
----
-
-## Acknowledgements
-
-This repository is based on the hands-on Formula 1 project from **Azure Databricks for Data Engineers** by **Ramesh Retnasamy / CloudBox Academy**.
-
-The project was used to study Azure Databricks, Apache Spark, Delta Lake, Unity Catalog, Lakeflow Jobs, and lakehouse data engineering concepts.
-
-Before publishing course-provided notebooks or other course assets publicly, confirm that doing so is permitted by the course's copyright and licensing terms.
 
