@@ -333,8 +333,6 @@ flowchart TD
     G --> H[Complete Batch]
 ```
 
-> The repository contains the notebooks used by these tasks, but not an exported Lakeflow Job definition. The exact task graph, dependencies, parameters, compute, and retry settings must be configured in the Databricks workspace or defined later with Databricks Asset Bundles.
-
 ### Passing the Batch ID Between Tasks
 
 The first orchestration notebook examines the landing folders and the `batch_control` table to identify the earliest unprocessed batch. It then publishes two Lakeflow task values:
